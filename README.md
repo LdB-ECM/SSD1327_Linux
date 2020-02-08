@@ -1,1 +1,1 @@
-# SSD1327_Linux
+# SSD1327 OLED Screen example using Linux
