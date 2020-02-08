@@ -16,7 +16,13 @@ extern "C" {									// Put extern C directive wrapper around
 . It is also assumed a valid reset cycle on reset pin was completed.
 . RETURN: valid SSD1327 for success, NULL for any failure
 .--------------------------------------------------------------------------*/
-bool SSD1327_Open (SPI_HANDLE spi);
+bool SSD1327_Open (SPI_HANDLE spi, GPIO_HANDLE gpio, uint8_t data_cmd_gpio);
+
+/*-[ SSD1327_SetWindow ]----------------------------------------------------}
+. Sets the window area to (x1,y1, x2, y2) so the next data commands are
+. into that area.
+.--------------------------------------------------------------------------*/
+void SSD1327_SetWindow (uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 
 /*-[ SSD1327_WriteChar ]----------------------------------------------------}
 . Writes the character in the current font to the screen at position (x,y)

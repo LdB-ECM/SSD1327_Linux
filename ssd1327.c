@@ -36,10 +36,13 @@ typedef struct ssd1327_device
 	uint16_t fontht;			// Current font height
 	uint16_t fontstride;		// Bytes between characters in font
 	uint8_t* fontdata;			// Pointer to current font data
+	GPIO_HANDLE gpio;			// GPIO handle for Data/Cmd access
+	uint8_t data_cmd_gpio;		// GPIO number that is data/cmd pin
 } SSD1327;
 
 /* Global table of ssd1327 devices.  */
 static SSD1327 tab[1] = { {0} };
+
 
 /*-[ SSD1327_Open ]---------------------------------------------------------}
 . Open access to an SSD1327 on the given SPI device handle. The SPI device
@@ -47,23 +50,44 @@ static SSD1327 tab[1] = { {0} };
 . It is also assumed a valid reset cycle on reset pin was completed.
 . RETURN: true SSD1327 for success, false for any failure
 .--------------------------------------------------------------------------*/
-bool SSD1327_Open (SPI_HANDLE spi)
+bool SSD1327_Open (SPI_HANDLE spi, GPIO_HANDLE gpio, uint8_t data_cmd_gpio)
 {
 	if (tab[0].spi == 0)											// Make sure device is not already open 
 	{
 		tab[0].spi = spi;											// Hold the SPI Handle
+		tab[0].gpio = gpio;											// Hold GPIO handle
+		tab[0].data_cmd_gpio = data_cmd_gpio;						// Hold gpio number for data_cmd
 		tab[0].screenwth = 128;										// Set screen width
 		tab[0].screenht = 128;										// Set screen height
 		tab[0].fontwth = 8;											// Font width = 8
 		tab[0].fontht = 16;											// Font width = 16
 		tab[0].fontstride = 16;										// Font stride = 16 bytes per character
 		tab[0].fontdata = (uint8_t*)&font_8x16_data[0];				// Pointer to font data
+		GPIO_Output(gpio, data_cmd_gpio, 0);						// Set to low .. ready for commands
 		SpiWriteAndRead(spi, (uint8_t*)&ssd1327_init[0], 0, 35, false);// Send initialize commands
+		GPIO_Output(gpio, data_cmd_gpio, 1);						// Set to high data mode
 		return true;												// Return success
 	}
 	return false;
 }
 
+/*-[ SSD1327_SetWindow ]----------------------------------------------------}
+. Sets the window area to (x1,y1, x2, y2) so the next data commands are 
+. into that area.
+.--------------------------------------------------------------------------*/
+void SSD1327_SetWindow (uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
+{
+	uint8_t temp[6];
+	temp[0] = 0x15;
+	temp[1] = x1;
+	temp[2] = x2 - 1;
+	temp[3] = 0x75;
+	temp[4] = y1;
+	temp[5] = y2 - 1;
+	GPIO_Output(tab[0].gpio, tab[0].data_cmd_gpio, 0);			// Set to low .. ready for command
+	SpiWriteAndRead(tab[0].spi, (uint8_t*)&temp[0], 0, 6, false);// Send set window command
+	GPIO_Output(tab[0].gpio, tab[0].data_cmd_gpio, 1);			// Set to high data mode
+}
 
 /*-[ SSD1327_WriteChar ]----------------------------------------------------}
 . Writes the character in the current font to the screen at position (x,y)
@@ -77,8 +101,9 @@ void SSD1327_WriteChar (uint16_t x, uint16_t y, char Ch)
 {
 	if (tab[0].spi && tab[0].fontdata)								// Make sure device is open and we have fontdata
 	{
-		uint8_t* video_wr_ptr = (uint8_t*)((y * tab[0].screenwth/2) + (x/2));
 		uint8_t* bp = &tab[0].fontdata[(uint8_t)Ch * tab[0].fontstride];// Load font bitmap pointer
+		x &= 0xFFFE;												// Make sure x value even 											
+		SSD1327_SetWindow(x, y, x + tab[0].fontwth, y + tab[0].fontht);
 		for (uint16_t y = 0; y < tab[0].fontht; y++)				// For each line in font height
 		{
 			uint8_t b = *bp;										// Fetch the first font byte	
@@ -88,7 +113,7 @@ void SSD1327_WriteChar (uint16_t x, uint16_t y, char Ch)
 				uint8_t col = 0;
 				if ((b & 0x80) == 0x80) col |= 0xF0;				// Set High pixel
 				if ((b & 0x40) == 0x40) col |= 0x0F;				// Set low pixel
-				video_wr_ptr[x] = col;								// Write pixel
+				SpiWriteAndRead(tab[0].spi, (uint8_t*)&col, 0, 1, false);// Send col as data			
 				b = b << 2;											// Shift 2 bit left
 				if ((((x + 1) % 4) == 0) && (x + 1) < tab[0].fontwth)
 				{
@@ -96,7 +121,7 @@ void SSD1327_WriteChar (uint16_t x, uint16_t y, char Ch)
 					bp++;											// Move to next font byte
 				}
 			}
-			video_wr_ptr += (tab[0].screenwth / 2);					// Next line down
+
 		}
 	}
 }

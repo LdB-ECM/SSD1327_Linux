@@ -26,7 +26,7 @@ int main (void)
 	GPIO_Setup(gpio, 25, GPIO_OUTPUT);								// GPIO25 to output mode .. reset pin for SSD1327
 	GPIO_Output(gpio, 25, 1);										// Set to high
 	GPIO_Setup(gpio, 24, GPIO_OUTPUT);								// GPIO24 to DATA/CMD mode for SSD1327
-	GPIO_Output(gpio, 24, 0);										// Set to low .. ready for commands
+	GPIO_Output(gpio, 24, 1);										// Set to high
 
 	spi = SpiOpenPort(0, 8, 10000000, SPI_MODE_3, false);			// Initialize SPI 0 for SSD1327 10Mhz, SPI_MODE3
 	if (spi == NULL)												// Check SPI opened
@@ -39,9 +39,8 @@ int main (void)
 	usleep(10);														// sleep for 10uS .. reset is 2uS just being safe
 	GPIO_Output(gpio, 25, 1);										// SSD1327 reset back high
 
-	if (SSD1327_Open(spi))											// Open the SSD1327 which sends initialize string
+	if (SSD1327_Open(spi, gpio, 24))								// Open the SSD1327 which sends initialize string
 	{
-		GPIO_Output(gpio, 24, 1);									// Set to DATA/CMD mode to data
 		SSD1327_WriteText(0, 0,  "Hello World");
 		SSD1327_WriteText(0, 16, "  SSD1327  ");
 		SSD1327_WriteText(0, 32, "Should Work");
