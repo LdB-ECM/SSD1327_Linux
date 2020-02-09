@@ -76,6 +76,7 @@ SPI_HANDLE SpiOpenPort (uint8_t spi_devicenum, uint8_t bit_exchange_size, uint32
 		int fd = open(&buf[0], O_RDWR);								// Open the SPI device
 		if (fd >= 0)												// SPI device opened correctly
 		{
+            spi_ptr->inuse =  1;									// Temp set so setup calls can run
 			spi_ptr->spi_fd = fd;									// Hold the file device to SPI
 			if (SpiSetMode(spi_ptr, mode) &&						// Set spi mode
 				SpiSetBitsPerWord(spi_ptr, bit_exchange_size) &&	// Set spi bits per exchange
@@ -83,8 +84,10 @@ SPI_HANDLE SpiOpenPort (uint8_t spi_devicenum, uint8_t bit_exchange_size, uint32
 				SpiSetBitOrder(spi_ptr, SPI_BIT_ORDER_MSBFIRST) &&  // Set spi MSB bit order
 				SpiSetChipSelect(spi_ptr, SPI_CS_Mode_LOW))			// Set SPI chip select low
 			{
-				spi_ptr->inuse = 1;									// The handle is now in use
 				spi = spi_ptr;										// Return SPI handle
+			}
+			else {
+				spi_ptr->inuse = 0;									// Clear the in use flag setup failed
 			}
 		}
 	}
