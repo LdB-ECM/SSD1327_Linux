@@ -18,6 +18,17 @@ extern "C" {									// Put extern C directive wrapper around
 .--------------------------------------------------------------------------*/
 bool SSD1327_Open (SPI_HANDLE spi, GPIO_HANDLE gpio, uint8_t data_cmd_gpio);
 
+/*-[ SSD1327_ScreenOnOff ]--------------------------------------------------}
+. Sends the command to turn the screen on/off.
+.--------------------------------------------------------------------------*/
+void SSD1327_ScreenOnOff(bool ScreenOn);
+
+
+/*-[ SSD1327_ScreenPattern ]------------------------------------------------}
+. Puts a pattern on screen
+.--------------------------------------------------------------------------*/
+void SSD1327_ScreenPattern (void);
+
 /*-[ SSD1327_SetWindow ]----------------------------------------------------}
 . Sets the window area to (x1,y1, x2, y2) so the next data commands are
 . into that area.

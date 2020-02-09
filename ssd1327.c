@@ -5,9 +5,9 @@
 #include "Font8x16.h"							// Font 16x8 bitmap data
 #include "ssd1327.h"							// This units header
 
-static const uint8_t ssd1327_init[35] = 
+static const uint8_t ssd1327_init[34] = 
 {
-	0xae,				// turn off oled panel off while we change  settings
+	0xae,				// Turn screen off while we do changes
 	0x15, 0x00, 0x7f,	// set column address start=0 end=127
 	0x75, 0x00, 0x7f,	// set row address start=0 end=127
 	0x81, 0x80,         // set contrast control to 50%
@@ -24,8 +24,10 @@ static const uint8_t ssd1327_init[35] =
 	0xbc, 0x08,         // Set pre-charge voltage level.
 	0xd5, 0x62,         // Function selection B
 	0xfd, 0x12,         // Set Command Lock (unlocked)
-	0xaf,               // Turn OLED screen back on
 };
+
+static uint8_t ssd1327_on = 0xaf;
+static uint8_t ssd1327_off = 0xae;
 
 typedef struct ssd1327_device
 {
@@ -64,11 +66,42 @@ bool SSD1327_Open (SPI_HANDLE spi, GPIO_HANDLE gpio, uint8_t data_cmd_gpio)
 		tab[0].fontstride = 16;										// Font stride = 16 bytes per character
 		tab[0].fontdata = (uint8_t*)&font_8x16_data[0];				// Pointer to font data
 		GPIO_Output(gpio, data_cmd_gpio, 0);						// Set to low .. ready for commands
-		SpiWriteAndRead(spi, (uint8_t*)&ssd1327_init[0], 0, 35, false);// Send initialize commands
-		GPIO_Output(gpio, data_cmd_gpio, 1);						// Set to high data mode
+		SpiWriteAndRead(spi, (uint8_t*)&ssd1327_init[0], 0, 34, false);// Send initialize commands
 		return true;												// Return success
 	}
 	return false;
+}
+
+/*-[ SSD1327_ScreenOnOff ]--------------------------------------------------}
+. Sends the command to turn the screen on/off.
+.--------------------------------------------------------------------------*/
+void SSD1327_ScreenOnOff (bool ScreenOn)
+{
+	GPIO_Output(tab[0].gpio, tab[0].data_cmd_gpio, 0);				// Data#Cmd low for command
+	uint8_t* p = (ScreenOn) ? &ssd1327_on : &ssd1327_off;
+	SpiWriteAndRead(tab[0].spi, p, 0, 1, false);					// Send off command commands
+	GPIO_Output(tab[0].gpio, tab[0].data_cmd_gpio, 1);				// Data#Cmd back high
+}
+
+
+/*-[ SSD1327_ScreenPattern ]------------------------------------------------}
+. Puts a pattern on screen
+.--------------------------------------------------------------------------*/
+void SSD1327_ScreenPattern (void)
+{
+	unsigned int x, y;
+	uint8_t color = 0;
+	GPIO_Output(tab[0].gpio, tab[0].data_cmd_gpio, 1);				// Make sure Data#Cmd high
+	for (y = 0; y < tab[0].screenht; y++)
+	{
+		for (x = 0; x < tab[0].screenwth / 2; x++) 
+		{
+			uint8_t temp = (color << 4) | color;
+			SpiWriteAndRead(tab[0].spi, &temp, 0, 1, false);		// Write 2 pixels of color
+			color++;
+			color &= 0x0F;	
+		}
+	}
 }
 
 /*-[ SSD1327_SetWindow ]----------------------------------------------------}
