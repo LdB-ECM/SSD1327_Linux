@@ -34,6 +34,7 @@ int main (void)
 		fprintf(stderr, "SPI device could not open\n");
 		return 1;
 	}
+	SpiSetBitOrder(spi, SPI_BIT_ORDER_LSBFIRST);					// Set LSB bit order for SSD1327
 
 	usleep(100000);													// sleep for 100mS (RESET high = 100ms)
 	GPIO_Output(gpio, 25, 0);										// SSD1327 reset low

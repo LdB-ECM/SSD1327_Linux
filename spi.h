@@ -25,6 +25,18 @@ extern "C" {									// Put extern C directive wrapper around
 
 #define SPI_DRIVER_VERSION 1100					// Version number 1.10 build 0
 
+typedef enum {
+   SPI_CS_Mode_LOW = 0,             /*!< Chip Select 0 */
+   SPI_CS_Mode_HIGH = 1,            /*!< Chip Select 1 */
+   SPI_CS_Mode_NONE = 2             /*!< No CS, control it yourself */
+} SPIChipSelect;
+
+typedef enum
+{
+    SPI_BIT_ORDER_LSBFIRST = 0,     /*!< LSB First */
+    SPI_BIT_ORDER_MSBFIRST = 1      /*!< MSB First */
+} SPIBitOrder;
+
 typedef struct spi_device* SPI_HANDLE;			// Define an SPI_HANDLE pointer to opaque internal struct
 
 #define NSPI 2									// 2 SPI devices supported
@@ -42,6 +54,36 @@ SPI_HANDLE SpiOpenPort (uint8_t spi_devicenum, uint8_t bit_exchange_size, uint32
 . RETURN: true for success, false for any failure
 .--------------------------------------------------------------------------*/
 bool SpiClosePort (SPI_HANDLE spiHandle);
+
+/*-[ SpiSetMode ]-----------------------------------------------------------}
+. Given a valid SPI handle sets the SPI mode to that given.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetMode (SPI_HANDLE spiHandle, uint16_t mode);
+
+/*-[ SpiSetSpeed ]----------------------------------------------------------}
+. Given a valid SPI handle sets the SPI read and write speed.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetSpeed (SPI_HANDLE spiHandle, uint32_t speed);
+
+/*-[ SpiSetChipSelect ]-----------------------------------------------------}
+. Given a valid SPI handle sets the SPI chip select mode to that given.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetChipSelect (SPI_HANDLE spiHandle, SPIChipSelect CS_Mode);
+
+/*-[ SpiSetBitOrder ]-----------------------------------------------------}
+. Given a valid SPI handle sets the SPI bit order(LSB/MSB) to that given.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetBitOrder(SPI_HANDLE spiHandle, SPIBitOrder Order);
+
+/*-[ SpiSetBitsPerWord ]----------------------------------------------------}
+. Given a valid SPI handle sets the SPI bits per transmission word.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetBitsPerWord (SPI_HANDLE spiHandle, uint8_t bits);
 
 /*-[ SpiWriteAndRead ]------------------------------------------------------}
 . Given a valid SPI handle and valid data pointers the call will send and

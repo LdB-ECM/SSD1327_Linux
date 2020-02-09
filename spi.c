@@ -28,10 +28,18 @@
 #error "Header does not match this version of file"
 #endif
 
+#define SPI_CS_HIGH     0x04					// Chip select high  
+#define SPI_LSB_FIRST   0x08					// LSB  
+#define SPI_3WIRE       0x10					// 3-wire mode SI and SO same line
+#define SPI_LOOP        0x20					// Loopback mode  
+#define SPI_NO_CS       0x40					// A single device occupies one SPI bus, so there is no chip select 
+#define SPI_READY       0x80					// Slave pull low to stop data transmission  
+
 struct spi_device
 {
 	int spi_fd;									// File descriptor for the SPI device
 	uint32_t spi_speed;							// SPI speed
+	uint16_t mode;								// SPI mode bits
     sem_t lock;									// Semaphore for lock
 	struct {
         uint16_t spi_bitsPerWord: 8;			// SPI bits per word
@@ -58,27 +66,22 @@ SPI_HANDLE SpiOpenPort (uint8_t spi_devicenum, uint8_t bit_exchange_size, uint32
 	{
 		spi_ptr->spi_fd = 0;										// Zero SPI file device
 		spi_ptr->spi_num = spi_devicenum;							// Hold spi device number
-		spi_ptr->spi_bitsPerWord = bit_exchange_size;				// Hold SPI exchange size
-		spi_ptr->spi_speed = speed;									// Hold SPI speed setting
 		spi_ptr->uselocks = (useLock == true) ? 1 : 0;				// Set use lock
         if (useLock)                                                // Using locks
         {
 			sem_init(&spi_ptr->lock, 0, 1);							// Initialize mutex to 1
         }
-        uint8_t spi_mode = mode;
-		uint8_t spi_bitsPerWord = bit_exchange_size;
         char buf[256] = { 0 };
 		sprintf(&buf[0], "/dev/spidev0.%c", (char)(0x30 + spi_devicenum));
 		int fd = open(&buf[0], O_RDWR);								// Open the SPI device
 		if (fd >= 0)												// SPI device opened correctly
 		{
 			spi_ptr->spi_fd = fd;									// Hold the file device to SPI
-			if (ioctl(spi_ptr->spi_fd, SPI_IOC_WR_MODE, &spi_mode) >= 0 &&
-				ioctl(spi_ptr->spi_fd, SPI_IOC_RD_MODE, &spi_mode) >= 0 &&
-				ioctl(spi_ptr->spi_fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bitsPerWord) >= 0 &&
-				ioctl(spi_ptr->spi_fd, SPI_IOC_RD_BITS_PER_WORD, &spi_bitsPerWord) >= 0 &&
-				ioctl(spi_ptr->spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_ptr->spi_speed) >= 0 &&
-				ioctl(spi_ptr->spi_fd, SPI_IOC_RD_MAX_SPEED_HZ, &spi_ptr->spi_speed) >= 0)
+			if (SpiSetMode(spi_ptr, mode) &&						// Set spi mode
+				SpiSetBitsPerWord(spi_ptr, bit_exchange_size) &&	// Set spi bits per exchange
+				SpiSetSpeed(spi_ptr, speed) &&						// Set spi speed
+				SpiSetBitOrder(spi_ptr, SPI_BIT_ORDER_MSBFIRST) &&  // Set spi MSB bit order
+				SpiSetChipSelect(spi_ptr, SPI_CS_Mode_LOW))			// Set SPI chip select low
 			{
 				spi_ptr->inuse = 1;									// The handle is now in use
 				spi = spi_ptr;										// Return SPI handle
@@ -108,6 +111,124 @@ bool SpiClosePort (SPI_HANDLE spiHandle)
 	}
 	return false;													// Return failure
 }
+
+#define all_mode_bits  (SPI_MODE_0 | SPI_MODE_1 | SPI_MODE_2 | SPI_MODE_3 )
+/*-[ SpiSetMode ]-----------------------------------------------------------}
+. Given a valid SPI handle sets the SPI mode to that given.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetMode (SPI_HANDLE spiHandle, uint16_t mode)
+{
+	if (spiHandle && spiHandle->inuse)								// SPI handle valid and SPI handle is in use
+	{	
+		mode &= all_mode_bits;										// Ensures mode is only valid mod bits
+		spiHandle->mode &= ~all_mode_bits;							// Clear all existing mode bits
+		spiHandle->mode |= mode;									// Set requested mode bits
+		if (ioctl(spiHandle->spi_fd, SPI_IOC_WR_MODE, &spiHandle->mode) >= 0)
+		{
+			return true;											// Return success
+		}
+	}
+	return false;													// Return failure
+}
+
+/*-[ SpiSetSpeed ]----------------------------------------------------------}
+. Given a valid SPI handle sets the SPI read and write speed.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetSpeed (SPI_HANDLE spiHandle, uint32_t speed)
+{
+	if (spiHandle && spiHandle->inuse &&  speed > 0)				// SPI handle valid and SPI handle is in use
+	{
+		uint32_t temp = speed;										// Transfer requested speed
+		if ((ioctl(spiHandle->spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &temp) >= 0) && // Set write speed
+			(ioctl(spiHandle->spi_fd, SPI_IOC_RD_MAX_SPEED_HZ, &temp) >= 0))
+		{
+			spiHandle->spi_speed = speed;							// Hold the speed setting
+			return true;											// Return success with speed change
+		}
+	}
+	return false;													// Speed change failed
+}
+
+/*-[ SpiSetChipSelect ]-----------------------------------------------------}
+. Given a valid SPI handle sets the SPI chip select mode to that given.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetChipSelect (SPI_HANDLE spiHandle, SPIChipSelect CS_Mode)
+{
+	if (spiHandle && spiHandle->inuse)								// SPI handle valid and SPI handle is in use
+	{
+		switch (CS_Mode)
+		{
+			case SPI_CS_Mode_HIGH:									// CS HIGH FOR SELECT MODE
+				spiHandle->mode |= SPI_CS_HIGH;
+				spiHandle->mode &= ~SPI_NO_CS;
+				break;
+			case SPI_CS_Mode_LOW:									// CS LOW FOR SELECT MODE
+				spiHandle->mode &= ~SPI_CS_HIGH;
+				spiHandle->mode &= ~SPI_NO_CS;
+				break;
+			case SPI_CS_Mode_NONE:									// NO CS SELECT MODE
+				spiHandle->mode |= SPI_NO_CS;
+				break;
+			default:
+				return false;										// Invalid mode failure
+		}
+		if (ioctl(spiHandle->spi_fd , SPI_IOC_WR_MODE, &spiHandle->mode) >= 0) 
+		{	
+			return true;											// Return success
+		}
+	}
+	return false;													// Return failure
+}
+
+/*-[ SpiSetBitOrder ]-----------------------------------------------------}
+. Given a valid SPI handle sets the SPI bit order(LSB/MSB) to that given.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetBitOrder (SPI_HANDLE spiHandle, SPIBitOrder Order)
+{
+	if (spiHandle && spiHandle->inuse)								// SPI handle valid and SPI handle is in use
+	{
+		switch (Order)
+		{
+			case SPI_BIT_ORDER_LSBFIRST:							// LSB MODE SELECTED
+				spiHandle->mode |= SPI_LSB_FIRST;
+				break;
+			case SPI_BIT_ORDER_MSBFIRST:							// MSB MODE SELECTED
+				spiHandle->mode &= ~SPI_LSB_FIRST;
+				break;
+			default:
+				return false;										// Invalid mode failure
+		}
+		if (ioctl(spiHandle->spi_fd, SPI_IOC_WR_MODE, &spiHandle->mode) >= 0)
+		{
+			return true;											// Return success
+		}
+	}
+	return false;													// Return failure
+}
+
+/*-[ SpiSetBitsPerWord ]----------------------------------------------------}
+. Given a valid SPI handle sets the SPI bits per transmission word.
+. RETURN: true for success, false for any failure
+.--------------------------------------------------------------------------*/
+bool SpiSetBitsPerWord(SPI_HANDLE spiHandle, uint8_t bits)
+{
+	if (spiHandle && spiHandle->inuse && bits > 0)					// SPI handle valid and SPI handle is in use
+	{
+		uint8_t spi_bitsPerWord = bits;								// Create a temp variable
+		if ((ioctl(spiHandle->spi_fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bitsPerWord) >= 0) &&
+			(ioctl(spiHandle->spi_fd, SPI_IOC_RD_BITS_PER_WORD, &spi_bitsPerWord) >= 0))
+		{
+			spiHandle->spi_bitsPerWord = bits;						// Hold the bits per word
+			return true;											// Return success
+		}
+	}
+	return false;													// Return failure
+}
+
 
 /*-[ SpiWriteAndRead ]------------------------------------------------------}
 . Given a valid SPI handle and valid data pointers the call will send and
