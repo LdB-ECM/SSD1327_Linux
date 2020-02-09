@@ -28,7 +28,7 @@ int main (void)
 	GPIO_Setup(gpio, 24, GPIO_OUTPUT);								// GPIO24 to DATA/CMD mode for SSD1327
 	GPIO_Output(gpio, 24, 1);										// Set to high
 
-	spi = SpiOpenPort(0, 8, 2000000, SPI_MODE_3, false);			// Initialize SPI 0 for SSD1327 2Mhz, SPI_MODE3
+	spi = SpiOpenPort(0, 8, 2000000, SPI_MODE_0, false);			// Initialize SPI 0 for SSD1327 2Mhz, SPI_MODE_0
 	if (spi == NULL)												// Check SPI opened
 	{
 		fprintf(stderr, "SPI device could not open\n");

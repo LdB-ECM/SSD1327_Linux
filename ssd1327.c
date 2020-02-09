@@ -2,7 +2,7 @@
 #include <stdint.h>								// C standard unit for uint32_t etc
 #include "spi.h"								// SPI device unit as we will be using SPI
 #include "gpio.h"								// We need access to GPIO to resetup reset pin
-#include "Font8x16.h"							// Font 16x8 bitmap data
+#include "font8x16.h"							// Font 16x8 bitmap data
 #include "ssd1327.h"							// This units header
 
 static const uint8_t ssd1327_init[34] = 
