@@ -1,1 +1,4 @@
-# SSD1327_Linux
+# SSD1327 test code for Linux
+
+Test code for the waveshare OLED display Module
+https://www.waveshare.com/1.5inch-oled-module.htm
