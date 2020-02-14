@@ -7,26 +7,28 @@ ifeq ($(OS), Windows_NT)
 	#WINDOWS USE THESE DEFINITIONS
 	RM = -del /q
 	SLASH = \\
+        GCC_DIR = D:/SysGCC/raspberry/bin/
 else
 	#LINUX USE THESE DEFINITIONS
 	RM = -rm -f
 	SLASH = /
+        GCC_DIR =
 endif 
 
 TARGET = oledtest.cmd
 
 
 Pi3-64: CFLAGS = -Wall -O3 -mcpu=cortex-a53+fp+simd  -std=c11 -mstrict-align -fno-tree-loop-vectorize -fno-tree-slp-vectorize -Wno-nonnull-compare
-Pi3-64: ARMGNU = D:/SysGCC/raspberry/bin/arm-aarch64-linux-gnueabihf
+Pi3-64: ARMGNU = $(GCC_DIR)arm-aarch64-linux-gnueabihf
 
 Pi3: CFLAGS = -Wall -O3 -mcpu=cortex-a53 -mfpu=neon-vfpv4 -mfloat-abi=hard  -std=c11 -mno-unaligned-access -fno-tree-loop-vectorize -fno-tree-slp-vectorize -Wno-nonnull-compare
-Pi3: ARMGNU = D:/SysGCC/raspberry/bin/arm-linux-gnueabihf
+Pi3: ARMGNU = $(GCC_DIR)arm-linux-gnueabihf
 
 Pi2: CFLAGS = -Wall -O3 -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard -std=c11 -mno-unaligned-access -fno-tree-loop-vectorize -fno-tree-slp-vectorize -Wno-nonnull-compare
-Pi2: ARMGNU = D:/SysGCC/raspberry/bin/arm-linux-gnueabihf
+Pi2: ARMGNU = $(CC_DIR)arm-linux-gnueabihf
 
 Pi1: CFLAGS = -Wall -O3 -mcpu=arm1176jzf-s -mfpu=vfp -mfloat-abi=hard -std=c11 -mno-unaligned-access -fno-tree-loop-vectorize -fno-tree-slp-vectorize -Wno-nonnull-compare
-Pi1: ARMGNU = D:/SysGCC/raspberry/bin/arm-linux-gnueabihf
+Pi1: ARMGNU = $(GCC_DIR)arm-linux-gnueabihf
 
 # The directory in which source files are stored.
 SOURCE = ${CURDIR}
@@ -43,7 +45,7 @@ MAP = kernel.map
 
 # The names of all object files that must be generated. Deduced from the 
 # assembly code files in source.
-CFILES = $(wildcard $(SOURCE)/*.c) 
+CFILES = $(wildcard $(SOURCE)/*.c) $(wildcard $(SOURCE)/Fonts/*.c) 
 COBJS := $(patsubst %.c,$(BUILD)/%.o, $(notdir $(CFILES)))
 
 

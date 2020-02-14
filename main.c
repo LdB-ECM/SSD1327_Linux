@@ -6,9 +6,46 @@
 #include <pthread.h>
 #include <linux/spi/spidev.h> // Needed for SPI_MODE_3
 
+#include <time.h>
+#include <semaphore.h> // need to share access to screen
+
 #include "gpio.h"
 #include "spi.h"
 #include "ssd1327.h"
+
+static sem_t lock;
+
+static void* ticktask  (void* param)
+{
+	char buf[17];
+	while (1)
+	{
+        time_t t = time(NULL);
+		struct tm* tm = localtime(&t);
+		sprintf(buf, "%02u:%02u:%02u", tm->tm_hour, tm->tm_min, tm->tm_sec);
+		sem_wait(&lock);
+		SSD1327_WriteText(0, 40, &buf[0]);
+		sem_post(&lock);
+		sleep(1);
+	}
+	return 0;
+}
+
+static void* counttask (void* param)
+{
+	char buf[17];
+	uint16_t i = 0;
+	while (1)
+	{
+		sprintf(buf, "i=%05u", i);
+		sem_wait(&lock);
+		SSD1327_WriteText(0, 72, &buf[0]);
+		sem_post(&lock);
+		usleep(111111); 
+		i++;
+	}
+	return 0;
+}
 
 
 static GPIO_HANDLE gpio = 0;
@@ -28,13 +65,12 @@ int main (void)
 	GPIO_Setup(gpio, 24, GPIO_OUTPUT);								// GPIO24 to DATA/CMD mode for SSD1327
 	GPIO_Output(gpio, 24, 1);										// Set to high
 
-	spi = SpiOpenPort(0, 8, 2000000, SPI_MODE_0, false);			// Initialize SPI 0 for SSD1327 2Mhz, SPI_MODE_0
+	spi = SpiOpenPort(0, 8, 10000000, SPI_MODE_3, false);			// Initialize SPI 0 for SSD1327 10Mhz, SPI_MODE_3 
 	if (spi == NULL)												// Check SPI opened
 	{
 		fprintf(stderr, "SPI device could not open\n");
 		return 1;
 	}
-	SpiSetBitOrder(spi, SPI_BIT_ORDER_LSBFIRST);					// Set LSB bit order for SSD1327
 
 	usleep(100000);													// sleep for 100mS (RESET high = 100ms)
 	GPIO_Output(gpio, 25, 0);										// SSD1327 reset low
@@ -51,14 +87,24 @@ int main (void)
 
 	SSD1327_ScreenPattern();
 
-	SSD1327_WriteText(0, 0, "Hello World");
-	SSD1327_WriteText(0, 16, "  SSD1327  ");
-	SSD1327_WriteText(0, 32, "Should Work");
+	SSD1327_WriteText(0, 0, "HELLO WORLD");
+	SSD1327_WriteText(0, 128-16, "BOTTOM LINE");
+        
+	sem_init(&lock, 0, 1);
 
-
+	pthread_t taskhandle[2];
+	pthread_create(&taskhandle[0], NULL, ticktask, NULL);
+	pthread_create(&taskhandle[1], NULL, counttask, NULL);
 
 	getchar();														// Wait of a keypress
 
+	pthread_cancel(taskhandle[0]);
+	pthread_cancel(taskhandle[1]);
+    pthread_join(taskhandle[0], NULL);
+    pthread_join(taskhandle[1], NULL);
+
+	sem_destroy(&lock);
+    SpiClosePort(spi);
 	return (0);														// Exit program wioth no error
 }
 

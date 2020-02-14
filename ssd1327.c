@@ -112,8 +112,8 @@ void SSD1327_SetWindow (uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
 {
 	uint8_t temp[6];
 	temp[0] = 0x15;
-	temp[1] = x1;
-	temp[2] = x2 - 1;
+	temp[1] = x1/2;
+	temp[2] = x2/2 - 1;
 	temp[3] = 0x75;
 	temp[4] = y1;
 	temp[5] = y2 - 1;
@@ -134,24 +134,22 @@ void SSD1327_WriteChar (uint16_t x, uint16_t y, char Ch)
 {
 	if (tab[0].spi && tab[0].fontdata)								// Make sure device is open and we have fontdata
 	{
-		uint8_t* bp = &tab[0].fontdata[(uint8_t)Ch * tab[0].fontstride];// Load font bitmap pointer
+		uint8_t* bp = &tab[0].fontdata[(unsigned int)Ch * tab[0].fontstride];// Load font bitmap pointer
 		x &= 0xFFFE;												// Make sure x value even 											
 		SSD1327_SetWindow(x, y, x + tab[0].fontwth, y + tab[0].fontht);
-		for (uint16_t y = 0; y < tab[0].fontht; y++)				// For each line in font height
+		for (uint16_t j = 0; j < tab[0].fontht; j++)				// For each line in font height
 		{
-			uint8_t b = *bp;										// Fetch the first font byte	
-			bp++;													// Move to next font byte	
-			for (uint16_t x = 0; x < tab[0].fontwth/2; x++)			// We write two bytes at a time
+			uint8_t b = *bp++;										// Fetch the first font byte	
+			for (uint16_t i = 0; i < tab[0].fontwth/2; i++)			// We write two bytes at a time
 			{
 				uint8_t col = 0;
 				if ((b & 0x80) == 0x80) col |= 0xF0;				// Set High pixel
 				if ((b & 0x40) == 0x40) col |= 0x0F;				// Set low pixel
 				SpiWriteAndRead(tab[0].spi, (uint8_t*)&col, 0, 1, false);// Send col as data			
-				b = b << 2;											// Shift 2 bit left
+				b  = b << 2;											// Shift 2 bit left
 				if ((((x + 1) % 4) == 0) && (x + 1) < tab[0].fontwth)
 				{
-					b = *bp;										// Fetch next font byte
-					bp++;											// Move to next font byte
+					b = *bp++;
 				}
 			}
 
@@ -172,9 +170,9 @@ void SSD1327_WriteText (uint16_t x, uint16_t y, char* txt)
 	if (tab[0].spi && tab[0].fontdata && txt)						// Make sure device is open and we have fontdata and txt pointer
 	{
 		x &= 0xFFFE;												// Make sure x value even 
-		while (*txt != 0)											// Not a c string terminate character
+		while ((*txt) != 0)											// Not a c string terminate character
 		{
-			char ch = *txt++;										// Next character
+			char ch = (*txt++);										// Next character
 			SSD1327_WriteChar(x, y, ch);							// Write the charter to screen
 			x += tab[0].fontwth;									// Move to next character position
 		}
