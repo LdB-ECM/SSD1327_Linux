@@ -3,4 +3,4 @@
 Test code for the waveshare OLED display Module
 https://www.waveshare.com/1.5inch-oled-module.htm
 
-Update: Problem found the LCD is a LSB SPI device
+![](https://github.com/LdB-ECM/Docs_and_Images/blob/master/Images/oled.jpg?raw=true)
