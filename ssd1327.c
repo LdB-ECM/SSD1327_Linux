@@ -147,7 +147,7 @@ void SSD1327_WriteChar (uint16_t x, uint16_t y, char Ch)
 				if ((b & 0x40) == 0x40) col |= 0x0F;				// Set low pixel
 				SpiWriteAndRead(tab[0].spi, (uint8_t*)&col, 0, 1, false);// Send col as data			
 				b  = b << 2;										// Shift 2 bit left
-				if ((((i + 1) % 4) == 0) && (i + 1) < tab[0].fontwth)
+				if ((((i + 1) % 4) == 0) && ((i + 1) < tab[0].fontwth/2))
 				{
 					b = *bp++;										// Load next font byte
 				}
